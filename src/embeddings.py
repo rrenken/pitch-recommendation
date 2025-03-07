@@ -14,9 +14,11 @@ class PitchEmbedding(nn.Module):
         self.continuous_dim = continuous_dim
         self.categorical_info = categorical_info
         
-        # For continuous variables, project them into a fixed dimension.
-        # Here, we project continuous features to half of the final output dimension.
+        # Projecting continuous featueres to specified output_dim//2 (less expressive)
         self.continuous_proj = nn.Linear(continuous_dim, output_dim // 2)
+
+        # Projecting continuous featueres to larger dimension space (more expressive)
+        #self.continuous_proj = nn.Linear(continuous_dim, output_dim * 3 // 4)
         
         # For categorical variables, create an embedding layer for each feature.
         self.categorical_embeddings = nn.ModuleDict()
@@ -58,40 +60,3 @@ class PitchEmbedding(nn.Module):
         out = self.final_proj(combined)
         return out
 
-# ------------------------------
-# Example usage:
-# Suppose you have 100 continuous fields and 13 categorical fields.
-# For demonstration, here we use 4 categorical features as an example.
-
-continuous_dim = 100
-
-# Dictionary for categorical variables:
-# Keys are the feature names, and for each you specify the number of unique categories and desired embedding dimension.
-categorical_info = {
-    'pitcher_id': {'num_categories': 500, 'embedding_dim': 32},
-    'pitch_type': {'num_categories': 10, 'embedding_dim': 16},
-    'batter_side': {'num_categories': 3, 'embedding_dim': 8},
-    'game_situation': {'num_categories': 20, 'embedding_dim': 16},
-    # ... add the rest as needed to reach a total of 13 categorical features.
-}
-
-output_dim = 256  # Final token embedding dimension
-
-# Instantiate the embedding model
-pitch_embedding_model = PitchEmbedding(continuous_dim, categorical_info, output_dim)
-
-# Create dummy data for a batch of 32 pitches
-batch_size = 32
-continuous_inputs = torch.randn(batch_size, continuous_dim)
-
-categorical_inputs = {
-    'pitcher_id': torch.randint(0, 500, (batch_size,)),
-    'pitch_type': torch.randint(0, 10, (batch_size,)),
-    'batter_side': torch.randint(0, 3, (batch_size,)),
-    'game_situation': torch.randint(0, 20, (batch_size,))
-    # ... ensure you provide inputs for all categorical features defined in categorical_info.
-}
-
-# Generate the embeddings
-embeddings = pitch_embedding_model(continuous_inputs, categorical_inputs)
-print("Embedding shape:", embeddings.shape)  # Expected output: (32, 256)
