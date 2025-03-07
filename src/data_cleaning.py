@@ -48,7 +48,9 @@ def handle_missing(df):
     cat_fill_na = ['pitch_type', 'events', 'description', 'zone', 
                    'des', 'hit_location', 'bb_type', 'launch_speed_angle', 
                    'pitch_name', 
-                    'if_fielding_alignment', 'of_fielding_alignment' 
+                    'if_fielding_alignment', 'of_fielding_alignment',
+                    'on_3b', 'on_2b',
+                   'on_1b'
                     
                     ]
 
@@ -78,8 +80,7 @@ def handle_missing(df):
                     'api_break_x_arm',
                     'api_break_x_batter_in',
                     'arm_angle', 'home_win_exp',
-                    'bat_win_exp', 'on_3b', 'on_2b',
-                   'on_1b'
+                    'bat_win_exp', 
 
                     ]
 
@@ -87,4 +88,60 @@ def handle_missing(df):
         if col in df.columns:
             df[col] = df[col].fillna(0)
     
+    return df
+
+
+def handle_missing_efficient(df):
+    """Optimize null handling with vectorized operations"""
+    # Process categorical columns as a group
+    cat_cols = [col for col in ['pitch_type', 'events', 'description', 'zone', 
+                   'des', 'hit_location', 'bb_type', 'launch_speed_angle', 
+                   'pitch_name', 
+                    'if_fielding_alignment', 'of_fielding_alignment',
+                    'on_3b', 'on_2b',
+                   'on_1b'
+                    ] if col in df.columns]
+    if cat_cols:
+        df[cat_cols] = df[cat_cols].fillna('N/a')
+    
+    # Process continuous columns as a group
+    cont_cols = [col for col in ['release_speed', 'release_pos_x', 'release_pos_z', 
+                    'pfx_x', 'pfx_z', 'plate_x', 'plate_z', 'hc_x', 'hc_y',
+                    'vx0', 'vy0', 
+                    'vz0', 'ax', 'ay', 
+                    'az', 'sz_top', 'sz_bot', 'hit_distance_sc', 
+                    'launch_speed', 'launch_angle', 'effective_speed', 
+                    'release_spin_rate', 'release_extension', 
+                    'release_pos_y', 'estimated_ba_using_speedangle',
+                    'estimated_woba_using_speedangle', 'woba_value',
+                    'woba_denom', 'babip_value', 'iso_value', 'spin_axis',
+                    'delta_home_win_exp', 'delta_run_exp', 'bat_speed' ,
+                    'swing_length', 'estimated_slg_using_speedangle',
+                    'delta_pitcher_run_exp', 'hyper_speed',
+                    'pitcher_days_since_prev_game', 
+                    'batter_days_since_prev_game',
+                    'pitcher_days_until_next_game',
+                    'batter_days_until_next_game',
+                    'api_break_z_with_gravity',
+                    'api_break_x_arm',
+                    'api_break_x_batter_in',
+                    'arm_angle', 'home_win_exp',
+                    'bat_win_exp'] if col in df.columns]
+    if cont_cols:
+        df[cont_cols] = df[cont_cols].fillna(0)
+
+    # For runner columns: ensure consistent string type
+    runner_cols = ['on_1b', 'on_2b', 'on_3b']
+    for col in runner_cols:
+        if col in df.columns:
+            # Convert ALL values to strings for consistency
+            df[col] = df[col].astype(str)
+    
+    return df
+
+
+def rename_columns(df):
+    """Rename columns to more meaningful names (in-place)"""
+    col_rename = {'type': 'result_type'}
+    df.rename(columns=col_rename, inplace=True)
     return df

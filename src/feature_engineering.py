@@ -21,7 +21,7 @@ def apply_all_features(df):
     df['score_diff'] = df['fld_score'] - df['bat_score']
     
     # RISP calculation
-    df['risp'] = (df['on_2b'] > 0) | (df['on_3b'] > 0)
+    df['risp'] = (df['on_2b'].astype(str) != 'N/a') | (df['on_3b'].astype(str) != 'N/a')
     
     # Late-inning clutch situations
     late_close = (df['inning'] >= 7) & (df['score_diff'].between(0, 3))
