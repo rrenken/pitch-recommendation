@@ -3,6 +3,10 @@ data/
 raw/
 processed/
 
+# models
+models/
+
+
 # Jupyter Notebook
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
