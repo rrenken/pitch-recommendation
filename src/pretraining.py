@@ -208,9 +208,9 @@ class PitchTransformerTrainer:
             val_loss = self.validate(val_loader)
             self.val_losses.append(val_loss)
             
-            print(f"Epoch {epoch+1}/{num_epochs} - "
-                 f"Train loss: {train_loss:.4f}, "
-                 f"Val loss: {val_loss:.4f}")
+           # print(f"Epoch {epoch+1}/{num_epochs} - "
+           #      f"Train loss: {train_loss:.4f}, "
+           #      f"Val loss: {val_loss:.4f}")
             
             # Save checkpoint
             if (epoch + 1) % 5 == 0 or epoch == num_epochs - 1:
