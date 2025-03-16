@@ -65,20 +65,6 @@ Current prototype shows promising results with the pretraining task:
 5. **Scale Training**: Move to more powerful hardware and train on full dataset
 6. **Evaluation**: Benchmark against traditional and heuristic methods
 
-## Installation & Setup
-
-```bash
-# Clone repository
-git clone https://github.com/username/pitch-recommendation.git
-cd pitch-recommendation
-
-# Create virtual environment
-conda create -n pitch-rec python=3.9
-conda activate pitch-rec
-
-# Install dependencies
-pip install -r requirements.txt
-```
 
 ## Usage
 
