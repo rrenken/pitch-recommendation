@@ -121,7 +121,7 @@ class PitchTransformer(nn.Module):
 
     
     
-    def generate(self, sequence, max_new_tokens=5):
+    def generate(self, sequence, max_new_tokens=5, embedding_layer=None, pitch_type_map=None):
         """
         Generate pitch predictions autoregressively.
         
@@ -147,9 +147,14 @@ class PitchTransformer(nn.Module):
                 # Sample or take argmax
                 next_pitch_idx = torch.argmax(next_pitch_probs, dim=-1)
                 
-                # This would be where you convert the pitch idx back to an embedding
-                # For now we'll just use a placeholder
-                next_pitch_embedding = torch.zeros_like(sequence[:, 0:1, :])
+                # Convert pitch index back to an embedding
+                if embedding_layer is not None:
+                    # Use provided embedding function 
+                    next_pitch_embedding = embedding_layer(next_pitch_idx).unsqueeze(1)
+                else:
+                    # Fallback: Reuse the last pitch embedding (better than zeros)
+                    # In a real implementation, you would use a proper embedding lookup
+                    next_pitch_embedding = sequence[:, -1:, :].clone()
                 
                 # Append to sequence
                 sequence = torch.cat([sequence, next_pitch_embedding], dim=1)

@@ -21,6 +21,27 @@ def combine_pitcher_data():
     return pd.concat(data, ignore_index=True)
 
 
+def combine_pitcher_data_testing():
+    """
+    Combine all pitcher Statcast data into a single DataFrame.
+    
+    Returns:
+    DataFrame: The combined data
+    """
+    # Get all files in the directory
+    files = [f for f in os.listdir("../data/raw/testing") if f.endswith(".csv")]
+    
+    # Read all files into a list
+    data = [pd.read_csv(f"../data/raw/testing/{f}") for f in files]
+    
+    # Concatenate the list into a single DataFrame
+    return pd.concat(data, ignore_index=True)
+
+
+
+
+
+
 def drop_null_columns(data):
     """
     Drop unnecessary columns from the data.
