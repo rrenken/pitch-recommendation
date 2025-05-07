@@ -5,7 +5,10 @@ from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from tqdm.notebook import tqdm
 import matplotlib.pyplot as plt
-
+from collections import Counter
+import time
+import os
+from transformer import PitchTransformer
 
 class PitchTransformerTrainer:
     """Trainer class for the PitchTransformer model"""
@@ -13,13 +16,15 @@ class PitchTransformerTrainer:
                 model, 
                 learning_rate=5e-5, 
                 weight_decay=0.01,
-                device=None):
+                device=None,
+                class_weights=None):
         """
         Args:
             model: PitchTransformer model
             learning_rate: Learning rate for optimizer
             weight_decay: Weight decay for regularization
             device: Device to use for training (cpu or cuda)
+            class_weights: Optional 1D tensor of shape [num_classes] for class-weighted loss
         """
         self.model = model
         self.device = device or torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -34,7 +39,10 @@ class PitchTransformerTrainer:
         
         # Loss function
         # ignore_index=-100 means we'll use -100 to mask out padded positions
-        self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
+        if class_weights is not None:
+            self.criterion = nn.CrossEntropyLoss(weight=class_weights.to(self.device), ignore_index=-100)
+        else:
+            self.criterion = nn.CrossEntropyLoss(ignore_index=-100)
         
         # History for plotting
         self.train_losses = []
@@ -195,28 +203,52 @@ class PitchTransformerTrainer:
                 
         return total_loss / len(val_loader)
     
-    def train(self, train_loader, val_loader, num_epochs=10):
-        """Full training loop"""
+    def train(self, train_loader, val_loader, num_epochs=10, early_stopping_patience=10):
+        """Full training loop with early stopping and epoch timing"""
         print(f"Training on {self.device}")
-        
+        best_val_loss = float('inf')
+        epochs_no_improve = 0
+        best_epoch = -1
+        best_model_path = None
+
         for epoch in range(num_epochs):
+            epoch_start = time.time()
             # Train
             train_loss = self.train_epoch(train_loader)
             self.train_losses.append(train_loss)
-            
+
             # Validate
             val_loss = self.validate(val_loader)
             self.val_losses.append(val_loss)
-            
-           # print(f"Epoch {epoch+1}/{num_epochs} - "
-           #      f"Train loss: {train_loss:.4f}, "
-           #      f"Val loss: {val_loss:.4f}")
-            
-            # Save checkpoint
-            if (epoch + 1) % 5 == 0 or epoch == num_epochs - 1:
+
+            epoch_end = time.time()
+            epoch_duration = epoch_end - epoch_start
+            print(f"Epoch {epoch+1}/{num_epochs} - "
+                  f"Train loss: {train_loss:.4f}, "
+                  f"Val loss: {val_loss:.4f}, "
+                  f"Duration: {epoch_duration:.2f} seconds")
+
+            # Check for improvement
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                epochs_no_improve = 0
+                best_epoch = epoch + 1
+                best_model_path = f"../models/pitch_transformer_best.pt"
+                self.save_checkpoint(best_model_path)
+            else:
+                epochs_no_improve += 1
+
+            # Save checkpoint every 25 epochs or last epoch
+            if (epoch + 1) % 25 == 0 or epoch == num_epochs - 1:
                 self.save_checkpoint(f"../models/pitch_transformer_epoch_{epoch+1}.pt")
                 self.plot_losses()
-                
+
+            # Early stopping
+            if epochs_no_improve >= early_stopping_patience:
+                print(f"Early stopping triggered after {epoch+1} epochs. Best val loss: {best_val_loss:.4f} at epoch {best_epoch}.")
+                print(f"Best model saved to {best_model_path}")
+                break
+
         return self.train_losses, self.val_losses
     
     def save_checkpoint(self, path):
@@ -305,3 +337,78 @@ class PitchTransformerTrainer:
             'top3_accuracy': top3_acc,
             'total_valid': total_valid
         }
+
+if __name__ == "__main__":
+    import os
+    from transformer import PitchTransformer
+
+    start_time = time.time()
+
+    # Set device
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")
+
+    # Create output directories if needed
+    os.makedirs('../models', exist_ok=True)
+    os.makedirs('../figures', exist_ok=True)
+
+    # Path to embeddings (update as needed)
+    embeddings_path = '../data/embeddings/pitch_embeddings_with_types_test.pt'
+
+    # Load pitch type map to get vocab size
+    embedding_data = torch.load(embeddings_path)
+    if 'pitch_type_map' in embedding_data:
+        num_pitch_types = len(embedding_data['pitch_type_map'])
+    elif 'pitch_types' in embedding_data:
+        num_pitch_types = int(embedding_data['pitch_types'].max().item()) + 1
+    else:
+        raise ValueError("pitch_type_map or pitch_types not found in embedding data.")
+
+    # Compute class weights for imbalanced pitch types
+    pitch_types = embedding_data['pitch_types']
+    valid_targets = pitch_types[pitch_types != -100].flatten()
+    num_classes = num_pitch_types  # Ensure this matches model output
+    counts = torch.bincount(valid_targets, minlength=num_classes)
+    class_weights = 1.0 / (counts.float() + 1e-6)  # Avoid division by zero
+    class_weights = class_weights / class_weights.sum() * num_classes  # Normalize
+
+    # Model hyperparameters (match your embedding/sequence setup)
+    model = PitchTransformer(
+        embed_dim=embedding_data['embeddings'].shape[2],
+        num_heads=8,
+        num_layers=6,
+        pitch_vocab_size=num_pitch_types,
+        dropout=0.1,
+        max_seq_len=embedding_data['embeddings'].shape[1]
+    )
+
+    # Trainer
+    trainer = PitchTransformerTrainer(
+        model=model,
+        learning_rate=5e-5,
+        weight_decay=0.01,
+        device=device,
+        class_weights=class_weights
+    )
+
+    # Prepare data
+    train_loader, val_loader = trainer.prepare_data(
+        embeddings_path=embeddings_path,
+        batch_size=32
+    )
+
+    # Train
+    train_losses, val_losses = trainer.train(
+        train_loader=train_loader,
+        val_loader=val_loader,
+        num_epochs=100,
+        early_stopping_patience=10
+    )
+
+    # Optionally evaluate accuracy
+    acc = trainer.evaluate_accuracy(val_loader)
+    print(f"Validation Top-1 Accuracy: {acc['top1_accuracy']:.3f}, Top-3 Accuracy: {acc['top3_accuracy']:.3f}")
+
+    end_time = time.time()
+    duration = end_time - start_time
+    print(f"Pretraining complete! Total duration: {duration:.2f} seconds ({duration/60:.2f} minutes)")

@@ -71,7 +71,7 @@ def pitcher_year_month_statcast_testing(year, month):
         
         if data is not None and not data.empty:
             # Create filename
-            filename = f"../data/raw/pitcher/testing/pitcher_statcast_{year}_{month_name}.csv"
+            filename = f"../data/raw/testing/pitcher_statcast_{year}_{month_name}.csv"
             
             # Save to CSV
             data.to_csv(filename, index=False)
